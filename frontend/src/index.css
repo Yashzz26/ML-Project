@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f7f5fd;
+    color: #1e1b4b;
+  }
+}
+
+/* Custom Scrollbar for sleek analytics look */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1ecfc;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d8b4fe;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c084fc;
+}
+
+/* White analytics card with soft purple border and subtle shadow */
+.analytics-card {
+  background: #ffffff;
+  border: 1px solid #ede8fa;
+  border-radius: 1rem;
+  box-shadow: 0 4px 18px -2px rgba(124, 58, 237, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.analytics-card:hover {
+  border-color: #ddd2f8;
+  box-shadow: 0 10px 25px -4px rgba(124, 58, 237, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
+}
+
+/* Hand-drawn marker underline effect */
+.marker-underline {
+  position: relative;
+  display: inline-block;
+}
+
+.marker-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 6px;
+  background-color: #8b5cf6;
+  opacity: 0.35;
+  border-radius: 3px;
+  transform: rotate(-1deg);
+}
+
+/* Sticky note style for annotations */
+.sticky-note {
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  box-shadow: 2px 4px 12px rgba(161, 98, 7, 0.08);
+}
