@@ -23,8 +23,7 @@ import { apiService } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function ModelEvaluationPage() {
-  const [elbowData, setElbowData] = useState(null);
-  const [silhouetteData, setSilhouetteData] = useState(null);
+  const [evaluationData, setEvaluationData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -32,12 +31,8 @@ export default function ModelEvaluationPage() {
     async function loadEvaluation() {
       try {
         setLoading(true);
-        const [elbowRes, silRes] = await Promise.all([
-          apiService.getElbow(),
-          apiService.getSilhouette(),
-        ]);
-        setElbowData(elbowRes);
-        setSilhouetteData(silRes);
+        const res = await apiService.getEvaluationMetrics();
+        setEvaluationData(res);
       } catch (err) {
         setError(err.message || 'Failed to load model evaluation metrics');
       } finally {
@@ -60,15 +55,23 @@ export default function ModelEvaluationPage() {
     );
   }
 
-  const { evaluations: elbowEvals, explanation: elbowExp } = elbowData;
-  const { evaluations: silEvals, optimal_score, explanation: silExp } = silhouetteData;
+  const elbowEvals = evaluationData?.elbow || [];
+  const silEvals = evaluationData?.silhouette || [];
+  const multimetricEvals = evaluationData?.multimetric || [];
+  const finalMetrics = evaluationData?.final_metrics || {
+    silhouette_score: 0.5547,
+    davies_bouldin_index: 0.5722,
+    calinski_harabasz_score: 248.65,
+  };
 
-  const comparisonTable = silEvals.map((item) => {
+  const comparisonTable = multimetricEvals.map((item) => {
     const elbowMatch = elbowEvals.find((e) => e.k === item.k);
     return {
       k: item.k,
       inertia: elbowMatch ? elbowMatch.inertia : '—',
       silhouette: item.silhouette_score,
+      daviesBouldin: item.davies_bouldin_index,
+      calinskiHarabasz: item.calinski_harabasz_score,
       isOptimal: item.is_optimal,
     };
   });
@@ -89,8 +92,8 @@ export default function ModelEvaluationPage() {
           </p>
         </div>
 
-        {/* Model Lab Specification Badges (Required by Section 14) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-6 pt-5 border-t border-purple-50">
+        {/* Model Lab Specification Badges */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mt-6 pt-5 border-t border-purple-50">
           <div className="p-3 rounded-xl bg-[#fcfaff] border border-purple-100">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
               FEATURES
@@ -102,7 +105,7 @@ export default function ModelEvaluationPage() {
 
           <div className="p-3 rounded-xl bg-[#fcfaff] border border-purple-100">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              PREPROCESSING
+              SCALER
             </span>
             <span className="text-xs font-bold text-slate-800 block mt-0.5">
               StandardScaler
@@ -120,10 +123,10 @@ export default function ModelEvaluationPage() {
 
           <div className="p-3 rounded-xl bg-[#fcfaff] border border-purple-100">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-              INITIALIZATION
+              RESTARTS
             </span>
             <span className="text-xs font-bold text-slate-800 block mt-0.5">
-              k-means++
+              n_init = 10
             </span>
           </div>
 
@@ -132,16 +135,34 @@ export default function ModelEvaluationPage() {
               OPTIMAL K
             </span>
             <span className="text-sm font-extrabold text-[#5b21b6] font-display block mt-0.5">
-              5
+              5 Clusters
             </span>
           </div>
 
           <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
             <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
-              SILHOUETTE
+              SILHOUETTE (↑)
             </span>
             <span className="text-sm font-extrabold text-emerald-700 font-display block mt-0.5">
-              0.5547
+              {finalMetrics.silhouette_score}
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+            <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block">
+              DAVIES-BOULDIN (↓)
+            </span>
+            <span className="text-sm font-extrabold text-blue-700 font-display block mt-0.5">
+              {finalMetrics.davies_bouldin_index}
+            </span>
+          </div>
+
+          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+            <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
+              CALINSKI-HARABASZ (↑)
+            </span>
+            <span className="text-sm font-extrabold text-amber-700 font-display block mt-0.5">
+              {finalMetrics.calinski_harabasz_score}
             </span>
           </div>
         </div>
@@ -287,7 +308,9 @@ export default function ModelEvaluationPage() {
               <tr className="border-b border-purple-100 bg-[#fbf9fe] text-slate-600 font-bold uppercase tracking-wider">
                 <th className="py-2.5 px-3">Clusters (K)</th>
                 <th className="py-2.5 px-3">Inertia (WCSS)</th>
-                <th className="py-2.5 px-3">Silhouette Score</th>
+                <th className="py-2.5 px-3">Silhouette (↑)</th>
+                <th className="py-2.5 px-3">Davies-Bouldin (↓)</th>
+                <th className="py-2.5 px-3">Calinski-Harabasz (↑)</th>
                 <th className="py-2.5 px-3">Clustering Assessment</th>
                 <th className="py-2.5 px-3 text-right">Status</th>
               </tr>
@@ -309,6 +332,16 @@ export default function ModelEvaluationPage() {
                   <td className="py-3 px-3 font-mono">
                     <span className={row.isOptimal ? 'text-emerald-700 font-bold' : 'text-slate-700'}>
                       {row.silhouette}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 font-mono">
+                    <span className={row.isOptimal ? 'text-blue-700 font-bold' : 'text-slate-700'}>
+                      {row.daviesBouldin}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 font-mono">
+                    <span className={row.isOptimal ? 'text-amber-700 font-bold' : 'text-slate-700'}>
+                      {row.calinskiHarabasz}
                     </span>
                   </td>
                   <td className="py-3 px-3 text-slate-500">

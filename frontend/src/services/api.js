@@ -67,6 +67,43 @@ export const apiService = {
     return handleResponse(res);
   },
 
+  async getEvaluationMetrics() {
+    const res = await fetch(`${BASE_URL}/evaluation-metrics`);
+    return handleResponse(res);
+  },
+
+  async getClvAnalysis() {
+    const res = await fetch(`${BASE_URL}/clv-analysis`);
+    return handleResponse(res);
+  },
+
+  async predictBatch(data, isFile = false) {
+    let options = {
+      method: 'POST',
+    };
+    if (isFile) {
+      const formData = new FormData();
+      formData.append('file', data);
+      options.body = formData;
+    } else {
+      options.headers = { 'Content-Type': 'application/json' };
+      options.body = JSON.stringify(data);
+    }
+    const res = await fetch(`${BASE_URL}/batch-predict`, options);
+    return handleResponse(res);
+  },
+
+  async simulateCampaign(payload) {
+    const res = await fetch(`${BASE_URL}/campaign-simulator`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    return handleResponse(res);
+  },
+
   async getClusters() {
     const res = await fetch(`${BASE_URL}/clusters`);
     return handleResponse(res);
