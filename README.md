@@ -9,7 +9,7 @@ A production-quality machine learning web application built for the college CCE 
 Customer segmentation divides a heterogeneous customer base into distinct groups of individuals that share similar spending habits and income levels. By identifying these natural cohorts, retail and e-commerce businesses can design high-converting, personalized marketing strategies.
 
 ### Target Features
-The unsupervised model clusters customers across a **2-dimensional feature space**:
+The unsupervised model clusters customers across a **2-dimensional feature space**: .
 1. **Annual Income (k$)**
 2. **Spending Score (1-100)**
 
