@@ -10,6 +10,7 @@ import {
   Download,
   ShoppingCart,
   Store,
+  Megaphone,
 } from 'lucide-react';
 import { apiService } from '../services/api';
 
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { id: 'eda', label: 'EDA', icon: BarChart2 },
   { id: 'clusters', label: 'Cluster Analysis', icon: ScatterChart },
   { id: 'segmentation', label: 'Customer Analyzer', icon: User },
+  { id: 'campaign', label: 'ROI Simulator', icon: Megaphone },
   { id: 'evaluation', label: 'Model Evaluation', icon: SlidersHorizontal },
   { id: 'about', label: 'About Project', icon: Info },
 ];

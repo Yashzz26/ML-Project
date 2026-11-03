@@ -7,6 +7,7 @@ import EdaPage from './pages/EdaPage';
 import ClusterAnalysisPage from './pages/ClusterAnalysisPage';
 import CustomerSegmentationPage from './pages/CustomerSegmentationPage';
 import ModelEvaluationPage from './pages/ModelEvaluationPage';
+import CampaignSimulatorPage from './pages/CampaignSimulatorPage';
 import AboutProjectPage from './pages/AboutProjectPage';
 import { apiService } from './services/api';
 
@@ -42,6 +43,8 @@ export default function App() {
         return <ClusterAnalysisPage key={refreshKey} />;
       case 'segmentation':
         return <CustomerSegmentationPage key={refreshKey} />;
+      case 'campaign':
+        return <CampaignSimulatorPage key={refreshKey} />;
       case 'evaluation':
         return <ModelEvaluationPage key={refreshKey} />;
       case 'about':
