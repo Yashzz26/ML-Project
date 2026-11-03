@@ -236,6 +236,33 @@ def predict_batch():
         return jsonify({"error": f"Batch inference failure: {str(e)}"}), 500
 
 
+@app.post("/api/campaign-simulator")
+def simulate_campaign():
+    """Simulates marketing campaign reach, conversions, ROAS, and profit per segment."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        cluster_id = int(payload.get("cluster_id", 0))
+        budget = float(payload.get("budget", 1500.0))
+        discount_pct = float(payload.get("discount_pct", 10.0))
+        channel = str(payload.get("channel", "email"))
+
+        sim_result = model_service.simulate_campaign(
+            cluster_id=cluster_id,
+            budget=budget,
+            discount_pct=discount_pct,
+            channel=channel,
+        )
+        return jsonify(sim_result), 200
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Simulation failure: {str(e)}"}), 500
+
+
 @app.get("/api/results/export")
 def export_results():
     """Exports CSV containing clustered dataset or summary table."""

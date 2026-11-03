@@ -839,6 +839,120 @@ class CustomerSegmentationModel:
             }
         }
 
+    def simulate_campaign(
+        self,
+        cluster_id: int,
+        budget: float,
+        discount_pct: float,
+        channel: str
+    ) -> Dict[str, Any]:
+        """
+        Simulates marketing campaign ROI and conversion outcomes for customer cohorts.
+        """
+        if not self.is_initialized or self.processed_df is None:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+
+        if budget <= 0:
+            raise ValueError("Campaign budget must be greater than $0.")
+        if not (0 <= discount_pct <= 70):
+            raise ValueError("Discount percentage must be between 0% and 70%.")
+
+        channel_configs = {
+            "email": {"name": "Email Marketing", "cost_per_contact": 0.05, "base_rate": 0.035, "icon": "Mail"},
+            "sms": {"name": "SMS Direct Messaging", "cost_per_contact": 0.15, "base_rate": 0.082, "icon": "MessageSquare"},
+            "social_ads": {"name": "Targeted Social Ads", "cost_per_contact": 0.75, "base_rate": 0.045, "icon": "Share2"},
+            "vip_concierge": {"name": "VIP Concierge & Direct Mail", "cost_per_contact": 8.50, "base_rate": 0.260, "icon": "Award"},
+        }
+
+        channel_key = channel.lower().replace(" ", "_")
+        ch_info = channel_configs.get(channel_key, channel_configs["email"])
+
+        if cluster_id >= 0:
+            profile = next((p for p in self.cluster_profiles if p["cluster"] == cluster_id), None)
+            if not profile:
+                raise ValueError(f"Cluster ID {cluster_id} not found.")
+            persona = profile["persona"]
+            color = profile["color"]
+            segment_name = profile["segment_name"]
+        else:
+            persona = "All Clusters Portfolio"
+            color = "#6366F1"
+            segment_name = "Cross-Segment Audience"
+
+        if "VIP" in persona:
+            channel_fit = 1.9 if channel_key == "vip_concierge" else (0.8 if channel_key == "email" else 0.5)
+            discount_elasticity = 0.4
+            base_aov = 420.0
+        elif "Potential" in persona:
+            channel_fit = 1.4 if channel_key in ["email", "vip_concierge"] else 0.9
+            discount_elasticity = 1.1
+            base_aov = 260.0
+        elif "Carefree" in persona:
+            channel_fit = 1.7 if channel_key in ["social_ads", "sms"] else 1.0
+            discount_elasticity = 2.2
+            base_aov = 160.0
+        elif "Budget" in persona:
+            channel_fit = 1.3 if channel_key in ["sms", "email"] else 0.6
+            discount_elasticity = 2.8
+            base_aov = 85.0
+        else:
+            channel_fit = 1.1
+            discount_elasticity = 1.3
+            base_aov = 175.0
+
+        contacts_reached = int(budget / ch_info["cost_per_contact"])
+        effective_rate = ch_info["base_rate"] * channel_fit * (1.0 + (discount_pct / 100.0) * discount_elasticity)
+        effective_rate = min(max(effective_rate, 0.005), 0.65)
+
+        conversions = int(contacts_reached * effective_rate)
+        discounted_aov = base_aov * (1.0 - (discount_pct / 100.0))
+        cogs_per_order = base_aov * 0.62
+
+        gross_revenue = conversions * discounted_aov
+        total_cogs = conversions * cogs_per_order
+        net_profit = gross_revenue - total_cogs - budget
+        roas = round(gross_revenue / budget, 2) if budget > 0 else 0.0
+        roi_pct = round((net_profit / budget) * 100, 1) if budget > 0 else 0.0
+
+        if roas >= 4.0:
+            verdict = "Exceptional ROI - Highly Recommended Campaign"
+            verdict_badge = "Excellent"
+        elif roas >= 2.5:
+            verdict = "Profitable Campaign - Healthy Margins"
+            verdict_badge = "Profitable"
+        elif roas >= 1.0:
+            verdict = "Marginal Campaign - Consider Optimizing Channel or Discount"
+            verdict_badge = "Moderate"
+        else:
+            verdict = "Unprofitable Campaign - High Risk of Ad Spend Loss"
+            verdict_badge = "Risk"
+
+        return {
+            "inputs": {
+                "cluster_id": cluster_id,
+                "segment_name": segment_name,
+                "persona": persona,
+                "color": color,
+                "budget": budget,
+                "discount_pct": discount_pct,
+                "channel": ch_info["name"],
+            },
+            "metrics": {
+                "contacts_reached": contacts_reached,
+                "estimated_conversions": conversions,
+                "conversion_rate_pct": round(effective_rate * 100, 2),
+                "undiscounted_aov": round(base_aov, 2),
+                "discounted_aov": round(discounted_aov, 2),
+                "gross_revenue": round(gross_revenue, 2),
+                "total_cogs": round(total_cogs, 2),
+                "net_profit": round(net_profit, 2),
+                "roas": roas,
+                "roi_percentage": roi_pct,
+                "verdict": verdict,
+                "verdict_badge": verdict_badge,
+            }
+        }
+
 
 # Singleton factory
 _service_instance: Optional[CustomerSegmentationModel] = None
