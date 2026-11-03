@@ -1,5 +1,7 @@
 import os
+import io
 from pathlib import Path
+import pandas as pd
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 
@@ -204,6 +206,34 @@ def predict():
         return jsonify({"error": str(ve)}), 400
     except Exception as e:
         return jsonify({"error": f"Inference failure: {str(e)}"}), 500
+
+
+@app.post("/api/batch-predict")
+def predict_batch():
+    """Vectorized batch prediction via uploaded CSV file or JSON customer list."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+
+    try:
+        if "file" in request.files:
+            file = request.files["file"]
+            if file.filename == "":
+                return jsonify({"error": "No selected file"}), 400
+            file_stream = io.StringIO(file.stream.read().decode("utf-8", errors="replace"))
+            df_upload = pd.read_csv(file_stream)
+            records = df_upload.to_dict(orient="records")
+        else:
+            payload = request.get_json(silent=True) or {}
+            records = payload.get("customers") or payload.get("records") or payload
+            if isinstance(records, dict):
+                records = [records]
+
+        result = model_service.predict_batch(records)
+        return jsonify(result), 200
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"error": f"Batch inference failure: {str(e)}"}), 500
 
 
 @app.get("/api/results/export")

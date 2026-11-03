@@ -627,6 +627,107 @@ class CustomerSegmentationModel:
             "methodology_note": "Annual Income and Spending Score were standardized via StandardScaler and clustered with K-Means++ (K=5). Age and Gender are contextual profile attributes.",
         }
 
+    def predict_batch(self, records: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Scores a batch of customer records in one vectorized operation.
+        Accepts records with income and spending_score (or standard column names).
+        """
+        if not self.is_initialized or self.model is None or self.scaler is None:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+
+        if not records:
+            raise ValueError("No records provided for batch prediction.")
+
+        normalized_rows = []
+        for idx, r in enumerate(records):
+            inc = r.get("income") or r.get("Annual Income (k$)") or r.get("annual_income") or r.get("Income")
+            spd = r.get("spending_score") or r.get("Spending Score (1-100)") or r.get("spending_score_1_100") or r.get("Spending") or r.get("Spend")
+
+            if inc is None or spd is None:
+                raise ValueError(f"Record #{idx+1} is missing required 'income' or 'spending_score'.")
+
+            try:
+                inc_val = float(inc)
+                spd_val = float(spd)
+            except (ValueError, TypeError):
+                raise ValueError(f"Record #{idx+1} contains non-numeric values for income or spending.")
+
+            if inc_val <= 0 or not (0 <= spd_val <= 100):
+                raise ValueError(f"Record #{idx+1} has invalid ranges (Income > 0, Spending 0-100 required).")
+
+            cust_id = r.get("CustomerID") or r.get("customer_id") or r.get("id") or f"NEW-{idx+1:03d}"
+            gender = str(r.get("Gender") or r.get("gender") or "Unknown").strip().capitalize()
+            age_raw = r.get("Age") or r.get("age") or 35
+            try:
+                age_val = int(age_raw)
+            except (ValueError, TypeError):
+                age_val = 35
+
+            normalized_rows.append({
+                "CustomerID": cust_id,
+                "Gender": gender,
+                "Age": age_val,
+                "income": inc_val,
+                "spending": spd_val,
+            })
+
+        features_df = pd.DataFrame([{
+            "Annual Income (k$)": r["income"],
+            "Spending Score (1-100)": r["spending"]
+        } for r in normalized_rows])
+
+        scaled_matrix = self.scaler.transform(features_df)
+        predicted_clusters = self.model.predict(scaled_matrix)
+        distances_matrix = self.model.transform(scaled_matrix)
+
+        results = []
+        cluster_counts = {c: 0 for c in range(5)}
+
+        for i, norm in enumerate(normalized_rows):
+            c = int(predicted_clusters[i])
+            cluster_counts[c] += 1
+            label_info = self.cluster_labels_map.get(c, {})
+            dist = float(distances_matrix[i][c])
+
+            if label_info.get("persona") == "VIP / Premium Customer":
+                clv_tier = "Platinum"
+            elif label_info.get("persona") == "Under-Engaged / Potential Target":
+                clv_tier = "Gold"
+            elif label_info.get("persona") in ["Carefree / Value-Sensitive Spender", "Mainstream / Core Customer"]:
+                clv_tier = "Silver"
+            else:
+                clv_tier = "Bronze"
+
+            results.append({
+                "customerId": norm["CustomerID"],
+                "gender": norm["Gender"],
+                "age": norm["Age"],
+                "annualIncome": norm["income"],
+                "spendingScore": norm["spending"],
+                "cluster": c,
+                "segmentName": label_info.get("name", f"Cluster {c}"),
+                "persona": label_info.get("persona", f"Cluster {c}"),
+                "badge": label_info.get("badge", "Segmented"),
+                "color": label_info.get("color", "#6366F1"),
+                "clvTier": clv_tier,
+                "strategy": label_info.get("strategy", ""),
+                "distanceToCentroid": round(dist, 4),
+            })
+
+        return {
+            "total_processed": len(results),
+            "results": results,
+            "cluster_breakdown": [
+                {
+                    "cluster": c,
+                    "count": cluster_counts[c],
+                    "persona": self.cluster_labels_map.get(c, {}).get("persona", f"Cluster {c}"),
+                    "color": self.cluster_labels_map.get(c, {}).get("color", "#6366F1"),
+                }
+                for c in range(5)
+            ]
+        }
+
     def export_csv_content(self, export_type: str = "customers") -> str:
         """Generates dynamic CSV file contents for download."""
         if not self.is_initialized or self.processed_df is None:
