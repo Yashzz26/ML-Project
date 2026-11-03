@@ -177,6 +177,18 @@ def get_cluster_summary():
         return jsonify({"error": str(e)}), 500
 
 
+@app.get("/api/clv-analysis")
+def get_clv_analysis():
+    """Customer Lifetime Value (CLV) and revenue projections per segment."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+
+    try:
+        return jsonify(model_service.get_clv_projections()), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.post("/api/predict")
 def predict():
     """Infers customer segment using the fitted scaler and trained K-Means++ model."""

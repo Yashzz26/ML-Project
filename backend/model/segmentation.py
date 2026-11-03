@@ -662,6 +662,82 @@ class CustomerSegmentationModel:
             ]].copy()
             return export_df.to_csv(index=False)
 
+    def get_clv_projections(self) -> Dict[str, Any]:
+        """Calculates Customer Lifetime Value (CLV) and revenue projections by segment."""
+        if not self.is_initialized or self.processed_df is None:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+
+        gross_margin = 0.35  # 35% retail gross margin
+        discount_rate = 0.10 # 10% annual discount rate / cost of capital
+
+        retention_config = {
+            "VIP / Premium Customer": {"retention_rate": 0.88, "avg_lifespan_years": 4.5, "churn_risk": "Low", "tier": "Platinum"},
+            "Under-Engaged / Potential Target": {"retention_rate": 0.65, "avg_lifespan_years": 3.0, "churn_risk": "Moderate", "tier": "Gold"},
+            "Carefree / Value-Sensitive Spender": {"retention_rate": 0.70, "avg_lifespan_years": 2.5, "churn_risk": "Moderate", "tier": "Silver"},
+            "Budget-Conscious / Cautious Shopper": {"retention_rate": 0.55, "avg_lifespan_years": 2.0, "churn_risk": "High", "tier": "Bronze"},
+            "Mainstream / Core Customer": {"retention_rate": 0.78, "avg_lifespan_years": 3.5, "churn_risk": "Low", "tier": "Silver"},
+        }
+
+        cluster_clv = []
+        total_portfolio_annual_spend = 0.0
+        total_portfolio_3yr_clv = 0.0
+
+        for profile in self.cluster_profiles:
+            c = profile["cluster"]
+            c_df = self.processed_df[self.processed_df["Cluster"] == c]
+            persona = profile["persona"]
+            config = retention_config.get(
+                persona,
+                {"retention_rate": 0.70, "avg_lifespan_years": 3.0, "churn_risk": "Moderate", "tier": "Silver"}
+            )
+
+            # Individual annual spend proxy: Income * (Spending / 100) * 0.25
+            annual_spend_series = c_df["Annual Income (k$)"] * 1000.0 * (c_df["Spending Score (1-100)"] / 100.0) * 0.25
+            total_annual_spend = float(annual_spend_series.sum())
+            avg_annual_spend = float(annual_spend_series.mean()) if len(c_df) > 0 else 0.0
+
+            # 3-Year discounted CLV = Annual Gross Profit * sum_{t=1..3} [ (Retention)^t / (1 + Discount)^t ]
+            ret = config["retention_rate"]
+            npv_multiplier = sum((ret ** t) / ((1 + discount_rate) ** t) for t in range(1, 4))
+            
+            avg_annual_gross_profit = avg_annual_spend * gross_margin
+            avg_3yr_clv = avg_annual_gross_profit * npv_multiplier
+            total_3yr_clv = avg_3yr_clv * len(c_df)
+
+            total_portfolio_annual_spend += total_annual_spend
+            total_portfolio_3yr_clv += total_3yr_clv
+
+            cluster_clv.append({
+                "cluster": c,
+                "segment_name": profile["segment_name"],
+                "persona": persona,
+                "color": profile["color"],
+                "customer_count": profile["customer_count"],
+                "tier": config["tier"],
+                "churn_risk": config["churn_risk"],
+                "retention_rate": round(config["retention_rate"] * 100, 1),
+                "avg_annual_spend": round(avg_annual_spend, 2),
+                "avg_3yr_clv": round(avg_3yr_clv, 2),
+                "total_annual_spend": round(total_annual_spend, 2),
+                "total_3yr_clv": round(total_3yr_clv, 2),
+                "recommended_retention_budget": round(avg_3yr_clv * 0.12, 2),
+            })
+
+        cluster_clv = sorted(cluster_clv, key=lambda x: x["avg_3yr_clv"], reverse=True)
+
+        return {
+            "clusters": cluster_clv,
+            "portfolio_summary": {
+                "total_customers": len(self.processed_df),
+                "total_portfolio_annual_spend": round(total_portfolio_annual_spend, 2),
+                "total_projected_3yr_clv": round(total_portfolio_3yr_clv, 2),
+                "avg_customer_3yr_clv": round(total_portfolio_3yr_clv / len(self.processed_df), 2),
+                "highest_value_segment": cluster_clv[0]["persona"],
+                "gross_margin_percentage": int(gross_margin * 100),
+                "discount_rate_percentage": int(discount_rate * 100),
+            }
+        }
+
 
 # Singleton factory
 _service_instance: Optional[CustomerSegmentationModel] = None
