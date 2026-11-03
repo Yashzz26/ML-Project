@@ -141,6 +141,18 @@ def get_silhouette():
         return jsonify({"error": str(e)}), 500
 
 
+@app.get("/api/evaluation-metrics")
+def get_evaluation_metrics():
+    """Comprehensive clustering validation (Silhouette, Davies-Bouldin, Calinski-Harabasz)."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+
+    try:
+        return jsonify(model_service.get_evaluation_metrics()), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.get("/api/clusters")
 def get_clusters():
     """Returns 2D cluster points and centroids for visualization."""

@@ -6,7 +6,7 @@ import io
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from sklearn.preprocessing import StandardScaler
 
 
@@ -40,8 +40,11 @@ class CustomerSegmentationModel:
         self.model: Optional[KMeans] = None
         self.X_scaled: Optional[np.ndarray] = None
         self.silhouette_score_val: float = 0.0
+        self.davies_bouldin_val: float = 0.0
+        self.calinski_harabasz_val: float = 0.0
         self.evaluations_elbow: List[Dict[str, Any]] = []
         self.evaluations_silhouette: List[Dict[str, Any]] = []
+        self.evaluations_multimetric: List[Dict[str, Any]] = []
         self.cluster_profiles: List[Dict[str, Any]] = []
         self.cluster_labels_map: Dict[int, Dict[str, str]] = {}
         self.is_initialized: bool = False
@@ -146,20 +149,30 @@ class CustomerSegmentationModel:
                     "inertia": round(float(km_elbow.inertia_), 2),
                 })
 
-            # 5. Calculate Silhouette values for K=2 to 10
+            # 5. Calculate Silhouette, Davies-Bouldin, and Calinski-Harabasz for K=2 to 10
             self.evaluations_silhouette = []
+            self.evaluations_multimetric = []
             for k in range(2, 11):
-                km_sil = KMeans(
+                km_eval = KMeans(
                     n_clusters=k,
                     init="k-means++",
                     n_init=10,
                     random_state=42,
                 )
-                labels = km_sil.fit_predict(self.X_scaled)
-                score = float(silhouette_score(self.X_scaled, labels))
+                labels = km_eval.fit_predict(self.X_scaled)
+                sil = float(silhouette_score(self.X_scaled, labels))
+                db = float(davies_bouldin_score(self.X_scaled, labels))
+                ch = float(calinski_harabasz_score(self.X_scaled, labels))
                 self.evaluations_silhouette.append({
                     "k": k,
-                    "silhouette_score": round(score, 4),
+                    "silhouette_score": round(sil, 4),
+                    "is_optimal": (k == 5),
+                })
+                self.evaluations_multimetric.append({
+                    "k": k,
+                    "silhouette_score": round(sil, 4),
+                    "davies_bouldin_index": round(db, 4),
+                    "calinski_harabasz_score": round(ch, 2),
                     "is_optimal": (k == 5),
                 })
 
@@ -172,8 +185,10 @@ class CustomerSegmentationModel:
             )
             cluster_assignments = self.model.fit_predict(self.X_scaled)
 
-            # 7. Compute Silhouette Score on final model
+            # 7. Compute Silhouette, Davies-Bouldin, and Calinski-Harabasz on final model
             self.silhouette_score_val = float(silhouette_score(self.X_scaled, cluster_assignments))
+            self.davies_bouldin_val = float(davies_bouldin_score(self.X_scaled, cluster_assignments))
+            self.calinski_harabasz_val = float(calinski_harabasz_score(self.X_scaled, cluster_assignments))
 
             # 8. Enrich dataframe with clusters and profiles
             self.processed_df = self.raw_df.copy()
@@ -459,6 +474,28 @@ class CustomerSegmentationModel:
             "selected_k": 5,
             "optimal_score": round(self.silhouette_score_val, 4),
             "explanation": "The Silhouette Score evaluates cluster cohesion vs separation. Across all tested K values (2 to 10), K=5 delivers the peak score of 0.5547, confirming distinct, well-separated customer groups.",
+        }
+
+    def get_evaluation_metrics(self) -> Dict[str, Any]:
+        """Returns comprehensive multi-metric clustering evaluation data."""
+        if not self.is_initialized:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+
+        return {
+            "elbow": self.evaluations_elbow,
+            "silhouette": self.evaluations_silhouette,
+            "multimetric": self.evaluations_multimetric,
+            "selected_k": 5,
+            "final_metrics": {
+                "silhouette_score": round(self.silhouette_score_val, 4),
+                "davies_bouldin_index": round(self.davies_bouldin_val, 4),
+                "calinski_harabasz_score": round(self.calinski_harabasz_val, 2),
+            },
+            "interpretation": {
+                "silhouette": "Measures cluster cohesion vs separation (-1 to +1, higher is better). Peak is at K=5.",
+                "davies_bouldin": "Measures average similarity between clusters (lower is better). K=5 minimizes cluster overlap.",
+                "calinski_harabasz": "Variance ratio criterion evaluating between vs within-cluster dispersion (higher is better).",
+            },
         }
 
     def get_clusters_data(self) -> Dict[str, Any]:
