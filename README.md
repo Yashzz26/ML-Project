@@ -47,20 +47,35 @@ Dynamic Business Interpretation & Marketing Strategy Assignment
 REST API & Real-Time Inference (Using the exact fitted scaler & centroids)
 ```
 
-### Final Model Specifications
+### Final Model Specifications & Multi-Metric Validation
 - **Algorithm**: K-Means with probabilistic centroid seeding (`k-means++`)
 - **Clusters ($K$)**: `5`
 - **Inits ($n\_init$)**: `10`
 - **Random State**: `42`
 - **Silhouette Score**: `~0.5547` (Peak across tested $K \in [2, 10]$)
+- **Davies-Bouldin Index**: `~0.5722` (Minimizes cluster overlap; lower is better)
+- **Calinski-Harabasz Score**: `~248.65` (High variance ratio criterion; higher is better)
 - **Inertia at $K=5$**: `65.57`
 
 ### Dynamic Cluster Profiles Derived from Data
-1. **High Income • High Spending** (*VIP / Premium Customer*): Exclusive offers, luxury loyalty perks, early access, and concierge service.
-2. **High Income • Low Spending** (*Under-Engaged / Potential Target*): Premium product showcases, personalized value propositions, and targeted reactivation.
-3. **Low Income • High Spending** (*Carefree / Value Spender*): Trendy budget bundles, flash sales, festive discount promotions, and reward points.
-4. **Low Income • Low Spending** (*Budget-Conscious / Cautious Shopper*): Clearance deals, entry-level discount campaigns, and essential bulk offerings.
-5. **Moderate Income • Moderate Spending** (*Mainstream / Core Customer*): Seasonal campaigns, cross-sell/up-sell incentives, and loyalty tiers.
+1. **High Income • High Spending** (*VIP / Premium Customer*): Exclusive offers, luxury loyalty perks, early access, and concierge service. Projected CLV: Platinum Tier.
+2. **High Income • Low Spending** (*Under-Engaged / Potential Target*): Premium product showcases, personalized value propositions, and targeted reactivation. Projected CLV: Gold Tier.
+3. **Low Income • High Spending** (*Carefree / Value Spender*): Trendy budget bundles, flash sales, festive discount promotions, and reward points. Projected CLV: Silver Tier.
+4. **Low Income • Low Spending** (*Budget-Conscious / Cautious Shopper*): Clearance deals, entry-level discount campaigns, and essential bulk offerings. Projected CLV: Bronze Tier.
+5. **Moderate Income • Moderate Spending** (*Mainstream / Core Customer*): Seasonal campaigns, cross-sell/up-sell incentives, and loyalty tiers. Projected CLV: Silver Tier.
+
+---
+
+## 🚀 Advanced Feature Expansions (Production Suite)
+
+1. **Multi-Metric Cluster Validation Lab**
+   - Validates cluster boundaries using 3 simultaneous academic criteria: **Elbow Inertia (WCSS)**, **Silhouette Coefficient**, **Davies-Bouldin Index**, and **Calinski-Harabasz Score**.
+2. **Customer Lifetime Value (CLV) & Revenue Projections**
+   - Discounted cash flow (DCF) model forecasting 3-year projected customer value, churn risk, and retention budget allocation per cluster.
+3. **Batch Customer Scoring & CSV Pipeline**
+   - Drag-and-drop CSV processing pipeline enabling bulk scoring of prospective customer cohorts with instant CSV report download.
+4. **Marketing Campaign ROI Simulator**
+   - Decision-support simulator modeling audience reach, expected conversion rates, gross revenue, product COGS, and ROAS across 4 marketing channels (Email, SMS, Social Ads, VIP Concierge).
 
 ---
 
@@ -92,7 +107,8 @@ customer-segmentation-webapp/
 │   │   ├── __init__.py
 │   │   └── segmentation.py        # Dedicated ML service & lifecycle pipeline
 │   ├── data/
-│   │   └── Mall_Customers.csv      # Source dataset (200 records)
+│   │   ├── Mall_Customers.csv      # Benchmark dataset (200 records)
+│   │   └── sample_batch_customers.csv # Batch testing dataset
 │   ├── requirements.txt            # Python dependencies
 │   └── train_model.py              # Standalone training script
 ├── frontend/
@@ -117,7 +133,9 @@ customer-segmentation-webapp/
 │           ├── EdaPage.jsx                # Demographic & feature distributions
 │           ├── ClusterAnalysisPage.jsx    # Interactive cluster visualization
 │           ├── CustomerSegmentationPage.jsx# Live inference form & persona testing
-│           ├── ModelEvaluationPage.jsx    # Elbow & Silhouette analysis
+│           ├── BatchSegmentationPage.jsx  # Bulk CSV dropzone & scoring table
+│           ├── CampaignSimulatorPage.jsx  # Interactive marketing ROAS & budget simulator
+│           ├── ModelEvaluationPage.jsx    # Multi-metric evaluation (Elbow, Sil, DB, CH)
 │           └── AboutProjectPage.jsx       # Academic background & limitations
 ├── .gitignore
 └── README.md

@@ -223,10 +223,13 @@ def predict_batch():
             df_upload = pd.read_csv(file_stream)
             records = df_upload.to_dict(orient="records")
         else:
-            payload = request.get_json(silent=True) or {}
-            records = payload.get("customers") or payload.get("records") or payload
-            if isinstance(records, dict):
-                records = [records]
+            payload = request.get_json(silent=True)
+            if isinstance(payload, list):
+                records = payload
+            elif isinstance(payload, dict):
+                records = payload.get("customers") or payload.get("records") or [payload]
+            else:
+                records = []
 
         result = model_service.predict_batch(records)
         return jsonify(result), 200
