@@ -12,6 +12,10 @@ import {
   Store,
   Megaphone,
   UploadCloud,
+  Scale,
+  ShieldAlert,
+  GitCompare,
+  FileText,
 } from 'lucide-react';
 import { apiService } from '../services/api';
 
@@ -23,6 +27,9 @@ const NAV_ITEMS = [
   { id: 'segmentation', label: 'Customer Analyzer', icon: User },
   { id: 'batch', label: 'Batch Scoring', icon: UploadCloud },
   { id: 'campaign', label: 'ROI Simulator', icon: Megaphone },
+  { id: 'comparison', label: 'Model Benchmarking', icon: Scale },
+  { id: 'anomalies', label: 'Outlier Audit', icon: ShieldAlert },
+  { id: 'compare_segments', label: 'Segment Comparator', icon: GitCompare },
   { id: 'evaluation', label: 'Model Evaluation', icon: SlidersHorizontal },
   { id: 'about', label: 'About Project', icon: Info },
 ];

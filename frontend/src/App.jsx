@@ -9,6 +9,9 @@ import CustomerSegmentationPage from './pages/CustomerSegmentationPage';
 import BatchSegmentationPage from './pages/BatchSegmentationPage';
 import ModelEvaluationPage from './pages/ModelEvaluationPage';
 import CampaignSimulatorPage from './pages/CampaignSimulatorPage';
+import ModelComparisonPage from './pages/ModelComparisonPage';
+import OutlierDetectionPage from './pages/OutlierDetectionPage';
+import SegmentComparisonPage from './pages/SegmentComparisonPage';
 import AboutProjectPage from './pages/AboutProjectPage';
 import { apiService } from './services/api';
 
@@ -48,6 +51,12 @@ export default function App() {
         return <BatchSegmentationPage key={refreshKey} />;
       case 'campaign':
         return <CampaignSimulatorPage key={refreshKey} />;
+      case 'comparison':
+        return <ModelComparisonPage key={refreshKey} />;
+      case 'anomalies':
+        return <OutlierDetectionPage key={refreshKey} />;
+      case 'compare_segments':
+        return <SegmentComparisonPage key={refreshKey} />;
       case 'evaluation':
         return <ModelEvaluationPage key={refreshKey} />;
       case 'about':
