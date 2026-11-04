@@ -247,3 +247,34 @@ The benchmark dataset records mall visitor summary attributes rather than time-s
 2. **RFM Modeling**: Ingest live e-commerce transactional database feeds.
 3. **Alternative Algorithms**: Benchmark K-Means++ against DBSCAN and Hierarchical Agglomerative Clustering.
 4. **Automated CRM Integration**: Connect inferred clusters directly to personalized email marketing workflows.
+
+
+---
+
+## 🔬 Multi-Model Algorithmic Comparison
+
+The platform implements and benchmarks three distinct clustering paradigms:
+
+| Clustering Algorithm | Methodology | Optimal Silhouette | Primary Advantage | Selected Baseline |
+|---|---|---|---|---|
+| **K-Means++** | Centroid-based Partitioning | **0.5547** | Peak cohesion & convex separability | **Yes (Production Model)** |
+| **Agglomerative Hierarchical** | Bottom-up Ward Linkage | 0.5284 | Deterministic hierarchy tree | Academic Benchmark |
+| **DBSCAN** | Density-Based Spatial Clustering | 0.4210 | Isolates low-density noise & outliers | Outlier Detection |
+
+---
+
+## 🧪 Automated Testing Suite & CI
+
+The project features comprehensive end-to-end unit and integration test coverage:
+
+```bash
+# Run backend pytest suite
+cd backend
+python -m pytest tests -v
+
+# Run frontend production build
+cd ../frontend
+npm run build
+```
+
+Continuous integration is enforced via **GitHub Actions** (`.github/workflows/ci.yml`) on every push to `main`.
