@@ -5,7 +5,8 @@ import io
 
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
+from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from sklearn.preprocessing import StandardScaler
 
@@ -964,3 +965,23 @@ def get_model_service(data_path: Optional[Path] = None) -> CustomerSegmentationM
             data_path = Path(__file__).resolve().parent.parent / "data" / "Mall_Customers.csv"
         _service_instance = CustomerSegmentationModel(data_path)
     return _service_instance
+
+    def get_hierarchical_clustering(self) -> Dict[str, Any]:
+        """Hierarchical Agglomerative Clustering (Ward Linkage) benchmark."""
+        if not self.is_initialized:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+        agg = AgglomerativeClustering(n_clusters=5, metric="euclidean", linkage="ward")
+        labels = agg.fit_predict(self.X_scaled)
+        sil = float(silhouette_score(self.X_scaled, labels))
+        db = float(davies_bouldin_score(self.X_scaled, labels))
+        ch = float(calinski_harabasz_score(self.X_scaled, labels))
+        counts = [int((labels == i).sum()) for i in range(5)]
+        return {
+            "algorithm": "Agglomerative Hierarchical (Ward)",
+            "n_clusters": 5,
+            "silhouette_score": round(sil, 4),
+            "davies_bouldin_index": round(db, 4),
+            "calinski_harabasz_score": round(ch, 2),
+            "cluster_counts": counts,
+            "description": "Hierarchical bottom-up variance minimization clustering using Euclidean metric and Ward linkage.",
+        }
