@@ -985,3 +985,23 @@ def get_model_service(data_path: Optional[Path] = None) -> CustomerSegmentationM
             "cluster_counts": counts,
             "description": "Hierarchical bottom-up variance minimization clustering using Euclidean metric and Ward linkage.",
         }
+
+    def get_dbscan_clustering(self, eps: float = 0.45, min_samples: int = 4) -> Dict[str, Any]:
+        """Density-Based Spatial Clustering (DBSCAN) benchmark and outlier separation."""
+        if not self.is_initialized:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+        db = DBSCAN(eps=eps, min_samples=min_samples)
+        labels = db.fit_predict(self.X_scaled)
+        n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+        n_noise = int((labels == -1).sum())
+        sil = float(silhouette_score(self.X_scaled, labels)) if n_clusters > 1 else 0.0
+        return {
+            "algorithm": "DBSCAN (Density-Based)",
+            "eps": eps,
+            "min_samples": min_samples,
+            "clusters_found": n_clusters,
+            "outliers_detected": n_noise,
+            "outlier_percentage": round((n_noise / len(self.raw_df)) * 100, 1),
+            "silhouette_score": round(sil, 4),
+            "description": "Density-based clustering grouping closely packed points and isolating sparse boundary anomalies as noise.",
+        }
