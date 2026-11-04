@@ -1005,3 +1005,40 @@ def get_model_service(data_path: Optional[Path] = None) -> CustomerSegmentationM
             "silhouette_score": round(sil, 4),
             "description": "Density-based clustering grouping closely packed points and isolating sparse boundary anomalies as noise.",
         }
+
+    def get_3d_clustering(self) -> Dict[str, Any]:
+        """3D demographic clustering across [Age, Annual Income, Spending Score]."""
+        if not self.is_initialized or self.processed_df is None:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+        X_3d = self.raw_df[["Age", "Annual Income (k$)", "Spending Score (1-100)"]].astype(float)
+        scaler_3d = StandardScaler()
+        scaled_3d = scaler_3d.fit_transform(X_3d)
+        km_3d = KMeans(n_clusters=5, init="k-means++", n_init=10, random_state=42)
+        labels_3d = km_3d.fit_predict(scaled_3d)
+        centers_3d = scaler_3d.inverse_transform(km_3d.cluster_centers_)
+        
+        points_3d = []
+        for i, row in self.raw_df.iterrows():
+            points_3d.append({
+                "customerId": int(row["CustomerID"]),
+                "gender": str(row["Gender"]),
+                "age": int(row["Age"]),
+                "income": float(row["Annual Income (k$)"]),
+                "spending": float(row["Spending Score (1-100)"]),
+                "cluster": int(labels_3d[i]),
+            })
+            
+        centroids_formatted = [
+            {
+                "cluster": i,
+                "age": round(float(c[0]), 1),
+                "income": round(float(c[1]), 1),
+                "spending": round(float(c[2]), 1),
+            }
+            for i, c in enumerate(centers_3d)
+        ]
+        return {
+            "points": points_3d,
+            "centroids": centroids_formatted,
+            "silhouette_score": round(float(silhouette_score(scaled_3d, labels_3d)), 4),
+        }
