@@ -1065,3 +1065,51 @@ def get_model_service(data_path: Optional[Path] = None) -> CustomerSegmentationM
             "total_variance_explained": round(sum(var_ratios), 2),
             "points": pca_points,
         }
+
+    def get_anomalies(self, threshold_std: float = 2.0) -> Dict[str, Any]:
+        """Detects behavioral customer outliers based on centroid distance z-scores."""
+        if not self.is_initialized or self.processed_df is None or self.model is None:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+            
+        distances = self.model.transform(self.X_scaled)
+        assigned_dists = []
+        for i, row in self.processed_df.iterrows():
+            c = int(row["Cluster"])
+            assigned_dists.append(float(distances[i, c]))
+            
+        dists_arr = np.array(assigned_dists)
+        mean_dist = float(dists_arr.mean())
+        std_dist = float(dists_arr.std())
+        z_scores = (dists_arr - mean_dist) / (std_dist if std_dist > 0 else 1.0)
+        
+        anomalies_list = []
+        for i, row in self.processed_df.iterrows():
+            z = float(z_scores[i])
+            c = int(row["Cluster"])
+            if z >= threshold_std or z <= -2.5:
+                label_info = self.cluster_labels_map.get(c, {})
+                anomalies_list.append({
+                    "customerId": int(row["CustomerID"]),
+                    "gender": str(row["Gender"]),
+                    "age": int(row["Age"]),
+                    "annualIncome": float(row["Annual Income (k$)"]),
+                    "spendingScore": float(row["Spending Score (1-100)"]),
+                    "cluster": c,
+                    "persona": label_info.get("persona", f"Cluster {c}"),
+                    "color": label_info.get("color", "#6366F1"),
+                    "distanceToCentroid": round(float(dists_arr[i]), 4),
+                    "zScore": round(z, 2),
+                    "anomalyCategory": "Extreme High Distance" if z >= threshold_std else "Extreme Centroid Proximity",
+                    "actionableAudit": "Investigate potential edge case or unique VIP spending habit; prioritize personalized concierge consultation." if z >= threshold_std else "Core representative archetype of this customer persona."
+                })
+                
+        anomalies_list = sorted(anomalies_list, key=lambda x: x["distanceToCentroid"], reverse=True)
+        return {
+            "total_records": len(self.processed_df),
+            "anomalies_detected": len(anomalies_list),
+            "anomaly_rate_pct": round((len(anomalies_list) / len(self.processed_df)) * 100, 1),
+            "threshold_std": threshold_std,
+            "mean_centroid_distance": round(mean_dist, 4),
+            "std_centroid_distance": round(std_dist, 4),
+            "anomalies": anomalies_list,
+        }
