@@ -350,6 +350,18 @@ def get_clusters_3d():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.get("/api/anomalies")
+def get_anomalies_endpoint():
+    """Identifies behavioural customer anomalies and distance outliers."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+    try:
+        threshold = float(request.args.get("threshold", 2.0))
+        return jsonify(model_service.get_anomalies(threshold_std=threshold)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     # Support port configuration via environment variable, defaulting to 5000
     port = int(os.environ.get("PORT", 5000))
