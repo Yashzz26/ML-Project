@@ -1042,3 +1042,26 @@ def get_model_service(data_path: Optional[Path] = None) -> CustomerSegmentationM
             "centroids": centroids_formatted,
             "silhouette_score": round(float(silhouette_score(scaled_3d, labels_3d)), 4),
         }
+
+    def get_pca_projections(self) -> Dict[str, Any]:
+        """Principal Component Analysis (PCA) 2D projection of customer attributes."""
+        if not self.is_initialized:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+        pca = PCA(n_components=2)
+        X_pca = pca.fit_transform(self.X_scaled)
+        var_ratios = [round(float(v) * 100, 2) for v in pca.explained_variance_ratio_]
+        
+        pca_points = []
+        for idx, row in self.processed_df.iterrows():
+            pca_points.append({
+                "customerId": int(row["CustomerID"]),
+                "pc1": round(float(X_pca[idx, 0]), 4),
+                "pc2": round(float(X_pca[idx, 1]), 4),
+                "cluster": int(row["Cluster"]),
+                "segmentName": str(row["Segment"]),
+            })
+        return {
+            "explained_variance_ratio": var_ratios,
+            "total_variance_explained": round(sum(var_ratios), 2),
+            "points": pca_points,
+        }
