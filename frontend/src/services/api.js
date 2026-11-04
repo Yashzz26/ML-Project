@@ -125,6 +125,35 @@ export const apiService = {
     return handleResponse(res);
   },
 
+
+  async getModelComparison() {
+    const res = await fetch(`${BASE_URL}/model-comparison`);
+    return handleResponse(res);
+  },
+
+  async getClusters3D() {
+    const res = await fetch(`${BASE_URL}/clusters/3d`);
+    return handleResponse(res);
+  },
+
+  async getAnomalies(threshold = 2.0) {
+    const res = await fetch(`${BASE_URL}/anomalies?threshold=${threshold}`);
+    return handleResponse(res);
+  },
+
+  async compareSegments(clusterA, clusterB) {
+    const res = await fetch(`${BASE_URL}/segments/compare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cluster_a: clusterA, cluster_b: clusterB }),
+    });
+    return handleResponse(res);
+  },
+
+  getExecutiveReportUrl() {
+    return `${BASE_URL}/reports/executive-summary`;
+  },
+
   getExportUrl(type = 'customers') {
     return `${BASE_URL}/results/export?type=${type}`;
   },
