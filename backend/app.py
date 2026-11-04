@@ -362,6 +362,38 @@ def get_anomalies_endpoint():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.post("/api/segments/compare")
+def compare_segments():
+    """Head-to-head analytical contrast between two customer clusters."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        ca = int(payload.get("cluster_a", 0))
+        cb = int(payload.get("cluster_b", 1))
+        summary = model_service.get_cluster_summary()
+        prof_a = next((p for p in summary if p["cluster"] == ca), summary[0])
+        prof_b = next((p for p in summary if p["cluster"] == cb), summary[1])
+        
+        income_delta = round(prof_a["average_income"] - prof_b["average_income"], 2)
+        spend_delta = round(prof_a["average_spending_score"] - prof_b["average_spending_score"], 2)
+        age_delta = round(prof_a["average_age"] - prof_b["average_age"], 1)
+        
+        return jsonify({
+            "segment_a": prof_a,
+            "segment_b": prof_b,
+            "comparison": {
+                "income_delta_k": income_delta,
+                "spending_delta": spend_delta,
+                "age_delta_years": age_delta,
+                "larger_segment": prof_a["persona"] if prof_a["customer_count"] >= prof_b["customer_count"] else prof_b["persona"],
+                "strategic_contrast": f"{prof_a['persona']} has ${abs(income_delta)}k {'higher' if income_delta >= 0 else 'lower'} income and {abs(spend_delta)} {'higher' if spend_delta >= 0 else 'lower'} spend index than {prof_b['persona']}."
+            }
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     # Support port configuration via environment variable, defaulting to 5000
     port = int(os.environ.get("PORT", 5000))
