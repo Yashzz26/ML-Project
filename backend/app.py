@@ -339,6 +339,17 @@ def get_model_comparison():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.get("/api/clusters/3d")
+def get_clusters_3d():
+    """Returns 3D demographic coordinate space [Age, Income, Spending]."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+    try:
+        return jsonify(model_service.get_3d_clustering()), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     # Support port configuration via environment variable, defaulting to 5000
     port = int(os.environ.get("PORT", 5000))
