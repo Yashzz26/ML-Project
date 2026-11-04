@@ -394,6 +394,71 @@ def compare_segments():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.get("/api/reports/executive-summary")
+def get_executive_report_html():
+    """Generates print-ready HTML executive briefing summary."""
+    if model_service is None or not model_service.is_initialized:
+        return "<h3>ML Service unavailable</h3>", 503
+    try:
+        summary = model_service.get_cluster_summary()
+        eval_metrics = model_service.get_evaluation_metrics()["final_metrics"]
+        rows_html = "".join([
+            f"""<tr>
+                <td style="padding:10px; border-bottom:1px solid #e2e8f0; font-weight:bold;">Cluster {p['cluster']}</td>
+                <td style="padding:10px; border-bottom:1px solid #e2e8f0;"><span style="color:{p['color']}; font-weight:bold;">{p['persona']}</span></td>
+                <td style="padding:10px; border-bottom:1px solid #e2e8f0;">{p['customer_count']} ({p['percentage']}%)</td>
+                <td style="padding:10px; border-bottom:1px solid #e2e8f0;">${p['average_income']}k</td>
+                <td style="padding:10px; border-bottom:1px solid #e2e8f0;">{p['average_spending_score']}/100</td>
+                <td style="padding:10px; border-bottom:1px solid #e2e8f0;">{p['dominant_gender']} ({p['average_age']} yrs)</td>
+                <td style="padding:10px; border-bottom:1px solid #e2e8f0; font-size:11px;">{p['strategy']}</td>
+            </tr>"""
+            for p in summary
+        ])
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Customer Intelligence Executive Briefing</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 40px; color: #1e293b; }}
+        h1 {{ color: #4c1d95; font-size: 24px; margin-bottom: 4px; }}
+        .header {{ border-bottom: 2px solid #8b5cf6; padding-bottom: 15px; margin-bottom: 25px; }}
+        .kpis {{ display: flex; gap: 15px; margin-bottom: 30px; }}
+        .kpi {{ background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; flex: 1; }}
+        .kpi-title {{ font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: bold; }}
+        .kpi-val {{ font-size: 22px; font-weight: bold; color: #0f172a; margin-top: 5px; }}
+        table {{ width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }}
+        th {{ background: #f1f5f9; padding: 10px; font-size: 11px; text-transform: uppercase; color: #475569; }}
+        .footer {{ margin-top: 40px; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Customer Intelligence Executive Briefing</h1>
+        <p style="margin:0; color:#64748b; font-size:13px;">Unsupervised Mall Customer Cohort Segmentation • K-Means++ Model (K=5)</p>
+    </div>
+    <div class="kpis">
+        <div class="kpi"><div class="kpi-title">Total Customers</div><div class="kpi-val">200</div></div>
+        <div class="kpi"><div class="kpi-title">Optimal Clusters (K)</div><div class="kpi-val">5</div></div>
+        <div class="kpi"><div class="kpi-title">Silhouette Score</div><div class="kpi-val">{eval_metrics['silhouette_score']}</div></div>
+        <div class="kpi"><div class="kpi-title">Davies-Bouldin Index</div><div class="kpi-val">{eval_metrics['davies_bouldin_index']}</div></div>
+    </div>
+    <table>
+        <thead>
+            <tr><th>Cluster</th><th>Persona</th><th>Cohort Size</th><th>Avg Income</th><th>Avg Spend</th><th>Demographics</th><th>Strategic Action Plan</th></tr>
+        </thead>
+        <tbody>
+            {rows_html}
+        </tbody>
+    </table>
+    <div class="footer">Generated automatically by Customer Intelligence Lab API • Verified with StandardScaler & K-Means++ Clustering.</div>
+</body>
+</html>"""
+        return Response(html, mimetype="text/html"), 200
+    except Exception as e:
+        return f"<h3>Error: {str(e)}</h3>", 500
+
 if __name__ == "__main__":
     # Support port configuration via environment variable, defaulting to 5000
     port = int(os.environ.get("PORT", 5000))
