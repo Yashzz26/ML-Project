@@ -10,6 +10,7 @@ import BatchSegmentationPage from './pages/BatchSegmentationPage';
 import ModelEvaluationPage from './pages/ModelEvaluationPage';
 import CampaignSimulatorPage from './pages/CampaignSimulatorPage';
 import ModelComparisonPage from './pages/ModelComparisonPage';
+import DecisionTreePage from './pages/DecisionTreePage';
 import OutlierDetectionPage from './pages/OutlierDetectionPage';
 import SegmentComparisonPage from './pages/SegmentComparisonPage';
 import AboutProjectPage from './pages/AboutProjectPage';
@@ -53,6 +54,8 @@ export default function App() {
         return <CampaignSimulatorPage key={refreshKey} />;
       case 'comparison':
         return <ModelComparisonPage key={refreshKey} />;
+      case 'decision_tree':
+        return <DecisionTreePage key={refreshKey} />;
       case 'anomalies':
         return <OutlierDetectionPage key={refreshKey} />;
       case 'compare_segments':

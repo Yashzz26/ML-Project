@@ -16,6 +16,7 @@ import {
   ShieldAlert,
   GitCompare,
   FileText,
+  GitFork,
 } from 'lucide-react';
 import { apiService } from '../services/api';
 
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { id: 'batch', label: 'Batch Scoring', icon: UploadCloud },
   { id: 'campaign', label: 'ROI Simulator', icon: Megaphone },
   { id: 'comparison', label: 'Model Benchmarking', icon: Scale },
+  { id: 'decision_tree', label: 'Decision Tree (XAI)', icon: GitFork },
   { id: 'anomalies', label: 'Outlier Audit', icon: ShieldAlert },
   { id: 'compare_segments', label: 'Segment Comparator', icon: GitCompare },
   { id: 'evaluation', label: 'Model Evaluation', icon: SlidersHorizontal },
