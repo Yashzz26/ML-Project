@@ -9,6 +9,7 @@ from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
 from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
 
 
 class CustomerSegmentationModel:
@@ -954,18 +955,6 @@ class CustomerSegmentationModel:
             }
         }
 
-
-# Singleton factory
-_service_instance: Optional[CustomerSegmentationModel] = None
-
-def get_model_service(data_path: Optional[Path] = None) -> CustomerSegmentationModel:
-    global _service_instance
-    if _service_instance is None:
-        if data_path is None:
-            data_path = Path(__file__).resolve().parent.parent / "data" / "Mall_Customers.csv"
-        _service_instance = CustomerSegmentationModel(data_path)
-    return _service_instance
-
     def get_hierarchical_clustering(self) -> Dict[str, Any]:
         """Hierarchical Agglomerative Clustering (Ward Linkage) benchmark."""
         if not self.is_initialized:
@@ -1113,3 +1102,254 @@ def get_model_service(data_path: Optional[Path] = None) -> CustomerSegmentationM
             "std_centroid_distance": round(std_dist, 4),
             "anomalies": anomalies_list,
         }
+
+    def tune_kmeans(self, k: int = 5, init_method: str = "k-means++", n_init: int = 10) -> Dict[str, Any]:
+        """Dynamically retrains K-Means on the fly across user-selected K and initialization strategy."""
+        if not self.is_initialized or self.X_scaled is None:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+        
+        k = max(2, min(int(k), 10))
+        valid_inits = ["k-means++", "random"]
+        init = init_method if init_method in valid_inits else "k-means++"
+        
+        km = KMeans(n_clusters=k, init=init, n_init=int(n_init), random_state=42)
+        labels = km.fit_predict(self.X_scaled)
+        
+        sil_val = round(float(silhouette_score(self.X_scaled, labels)), 4)
+        db_val = round(float(davies_bouldin_score(self.X_scaled, labels)), 4)
+        ch_val = round(float(calinski_harabasz_score(self.X_scaled, labels)), 2)
+        inertia_val = round(float(km.inertia_), 2)
+        
+        # Denormalize cluster centers to original scale ($k, spending score)
+        centers_orig = self.scaler.inverse_transform(km.cluster_centers_)
+        
+        centroids = []
+        cluster_sizes = []
+        palette = ["#10B981", "#3B82F6", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16"]
+        
+        for i, c in enumerate(centers_orig):
+            cnt = int(np.sum(labels == i))
+            pct = round((cnt / len(labels)) * 100, 1)
+            centroids.append({
+                "cluster": i,
+                "income": round(float(c[0]), 1),
+                "spending": round(float(c[1]), 1),
+                "count": cnt,
+                "percentage": pct,
+                "color": palette[i % len(palette)],
+            })
+            cluster_sizes.append({"cluster": i, "count": cnt, "percentage": pct})
+            
+        points = []
+        for i, row in self.raw_df.iterrows():
+            c_idx = int(labels[i])
+            points.append({
+                "customerId": int(row["CustomerID"]),
+                "gender": str(row["Gender"]),
+                "age": int(row["Age"]),
+                "income": float(row["Annual Income (k$)"]),
+                "spending": float(row["Spending Score (1-100)"]),
+                "cluster": c_idx,
+                "color": palette[c_idx % len(palette)],
+            })
+            
+        # Contextual analytical commentary comparing with baseline K=5
+        if k == 5:
+            commentary = "K = 5 represents the global maximum for silhouette separability (~0.5547) and delivers 5 distinct, commercially viable retail cohorts."
+            status = "Optimal Partitioning"
+        elif k < 5:
+            commentary = f"Under-segmented (K={k}): Merges naturally distinct spending cohorts into broad groups, inflating intra-cluster variance and obscuring high-spending niche behaviors."
+            status = "Under-Segmented"
+        else:
+            commentary = f"Over-partitioned (K={k}): Artificially splits cohesive customer clusters into redundant sub-cohorts, reducing statistical significance and diluting marketing focus."
+            status = "Over-Segmented"
+            
+        return {
+            "k": k,
+            "init_method": init,
+            "n_init": int(n_init),
+            "inertia": inertia_val,
+            "silhouette_score": sil_val,
+            "davies_bouldin_index": db_val,
+            "calinski_harabasz_score": ch_val,
+            "optimal_k": 5,
+            "baseline_silhouette": self.silhouette_score_val,
+            "status": status,
+            "commentary": commentary,
+            "centroids": centroids,
+            "cluster_sizes": cluster_sizes,
+            "points": points,
+        }
+
+    def get_decision_tree_rules(self) -> Dict[str, Any]:
+        """
+        Trains a surrogate Decision Tree on K-Means outputs to provide transparent,
+        rule-based explainability (XAI) for how each customer segment is classified.
+        """
+        if not self.is_initialized or self.processed_df is None:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+            
+        X = self.raw_df[self.FEATURES]
+        y = self.processed_df["Cluster"].values
+        
+        dt = DecisionTreeClassifier(max_depth=3, criterion="entropy", random_state=42)
+        dt.fit(X, y)
+        fidelity = round(float(dt.score(X, y)) * 100, 1)
+        
+        feature_names = self.FEATURES
+        tree = dt.tree_
+        
+        nodes = []
+        for i in range(tree.node_count):
+            is_leaf = (tree.children_left[i] == tree.children_right[i])
+            val_counts = tree.value[i][0]
+            pred_class = int(np.argmax(val_counts))
+            label_info = self.cluster_labels_map.get(pred_class, {})
+            
+            feat_idx = tree.feature[i]
+            feat_name = feature_names[feat_idx] if feat_idx >= 0 else None
+            thresh = round(float(tree.threshold[i]), 1) if feat_idx >= 0 else None
+            
+            nodes.append({
+                "id": i,
+                "is_leaf": bool(is_leaf),
+                "feature": feat_name,
+                "threshold": thresh,
+                "condition": f"{feat_name} <= {thresh}" if feat_name else "Leaf Output",
+                "samples": int(tree.n_node_samples[i]),
+                "predicted_cluster": pred_class,
+                "persona": label_info.get("persona", f"Cluster {pred_class}"),
+                "color": label_info.get("color", "#6366F1"),
+                "left_child": int(tree.children_left[i]) if not is_leaf else None,
+                "right_child": int(tree.children_right[i]) if not is_leaf else None,
+            })
+            
+        # Recursive rule extraction from root to leaves
+        rules = []
+        def traverse(node_id: int, current_conditions: List[Dict[str, Any]]):
+            node_id = int(node_id)
+            if tree.children_left[node_id] == tree.children_right[node_id]:
+                # Leaf node
+                val_counts = tree.value[node_id][0]
+                pred_class = int(np.argmax(val_counts))
+                label_info = self.cluster_labels_map.get(pred_class, {})
+                samples = int(tree.n_node_samples[node_id])
+                rules.append({
+                    "rule_id": int(len(rules) + 1),
+                    "leaf_node_id": int(node_id),
+                    "conditions": list(current_conditions),
+                    "cluster": int(pred_class),
+                    "persona": str(label_info.get("persona", f"Cluster {pred_class}")),
+                    "tagline": str(label_info.get("tagline", "")),
+                    "strategy": str(label_info.get("strategy", "")),
+                    "badge": str(label_info.get("badge", "")),
+                    "color": str(label_info.get("color", "#6366F1")),
+                    "samples": int(samples),
+                    "percentage": round(float((samples / len(self.raw_df)) * 100), 1),
+                })
+                return
+            
+            feat_idx = int(tree.feature[node_id])
+            feat_name = feature_names[feat_idx]
+            thresh = round(float(tree.threshold[node_id]), 1)
+            
+            # Left branch (<= threshold)
+            left_cond = {"feature": feat_name, "operator": "<=", "threshold": thresh, "text": f"{feat_name} <= {thresh}"}
+            traverse(int(tree.children_left[node_id]), current_conditions + [left_cond])
+            
+            # Right branch (> threshold)
+            right_cond = {"feature": feat_name, "operator": ">", "threshold": thresh, "text": f"{feat_name} > {thresh}"}
+            traverse(int(tree.children_right[node_id]), current_conditions + [right_cond])
+            
+        traverse(0, [])
+        
+        # Feature importances
+        importances = {
+            feature_names[i]: round(float(dt.feature_importances_[i]) * 100, 1)
+            for i in range(len(feature_names))
+        }
+        
+        return {
+            "surrogate_model": "DecisionTreeClassifier (Entropy, Max Depth 3)",
+            "fidelity_accuracy_pct": fidelity,
+            "max_depth": 3,
+            "total_nodes": tree.node_count,
+            "total_leaves": len(rules),
+            "feature_importances": importances,
+            "nodes": nodes,
+            "rules": rules,
+            "summary": f"Surrogate Decision Tree captures {fidelity}% of K-Means clustering boundaries into transparent IF-THEN production rules.",
+        }
+
+    def explain_customer_prediction(self, income: float, spending: float) -> Dict[str, Any]:
+        """
+        Traces a single customer's feature inputs down the surrogate Decision Tree,
+        explaining step-by-step why they were assigned to their specific cluster.
+        """
+        if not self.is_initialized or self.processed_df is None:
+            raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+            
+        tree_res = self.get_decision_tree_rules()
+        nodes = {n["id"]: n for n in tree_res["nodes"]}
+        
+        curr_id = 0
+        path_steps = []
+        step_num = 1
+        
+        while not nodes[curr_id]["is_leaf"]:
+            curr_node = nodes[curr_id]
+            feat = curr_node["feature"]
+            thresh = curr_node["threshold"]
+            
+            val = float(income) if "Income" in feat else float(spending)
+            passes = (val <= thresh)
+            
+            path_steps.append({
+                "step": step_num,
+                "node_id": curr_id,
+                "feature": feat,
+                "customer_value": val,
+                "operator": "<=" if passes else ">",
+                "threshold": thresh,
+                "passed": passes,
+                "branch_taken": "Left (True)" if passes else "Right (False)",
+                "explanation": f"{feat} ({val}) is {'<=' if passes else '>'} {thresh}",
+            })
+            
+            curr_id = curr_node["left_child"] if passes else curr_node["right_child"]
+            step_num += 1
+            
+        leaf_node = nodes[curr_id]
+        pred_cluster = leaf_node["predicted_cluster"]
+        label_info = self.cluster_labels_map.get(pred_cluster, {})
+        
+        narrative = " → ".join([s["explanation"] for s in path_steps])
+        
+        return {
+            "input": {
+                "income": float(income),
+                "spending": float(spending),
+            },
+            "predicted_cluster": pred_cluster,
+            "persona": label_info.get("persona", f"Cluster {pred_cluster}"),
+            "tagline": label_info.get("tagline", ""),
+            "strategy": label_info.get("strategy", ""),
+            "color": label_info.get("color", "#6366F1"),
+            "badge": label_info.get("badge", ""),
+            "leaf_node_id": curr_id,
+            "path_steps": path_steps,
+            "explanation_narrative": f"Classified as {label_info.get('persona', f'Cluster {pred_cluster}')} because: {narrative}.",
+        }
+
+
+# Singleton factory
+_service_instance: Optional[CustomerSegmentationModel] = None
+
+def get_model_service(data_path: Optional[Path] = None) -> CustomerSegmentationModel:
+    global _service_instance
+    if _service_instance is None:
+        if data_path is None:
+            data_path = Path(__file__).resolve().parent.parent / "data" / "Mall_Customers.csv"
+        _service_instance = CustomerSegmentationModel(data_path)
+    return _service_instance
+

@@ -45,3 +45,27 @@ def test_batch_prediction(model_service):
     ]
     res = model_service.predict_batch(test_records)
     assert res["total_processed"] == 2
+
+def test_tune_kmeans(model_service):
+    res_k4 = model_service.tune_kmeans(k=4)
+    assert res_k4["k"] == 4
+    assert len(res_k4["centroids"]) == 4
+    assert res_k4["silhouette_score"] > 0.40
+
+    res_k5 = model_service.tune_kmeans(k=5)
+    assert res_k5["k"] == 5
+    assert len(res_k5["centroids"]) == 5
+
+def test_decision_tree_rules(model_service):
+    tree_data = model_service.get_decision_tree_rules()
+    assert tree_data["fidelity_accuracy_pct"] >= 95.0
+    assert len(tree_data["rules"]) > 0
+    assert "Annual Income (k$)" in tree_data["feature_importances"]
+
+def test_explain_customer_prediction(model_service):
+    explanation = model_service.explain_customer_prediction(income=85.0, spending=80.0)
+    assert "path_steps" in explanation
+    assert len(explanation["path_steps"]) > 0
+    assert explanation["predicted_cluster"] in [0, 1, 2, 3, 4]
+    assert len(explanation["explanation_narrative"]) > 0
+

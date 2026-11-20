@@ -459,6 +459,48 @@ def get_executive_report_html():
     except Exception as e:
         return f"<h3>Error: {str(e)}</h3>", 500
 
+
+@app.get("/api/tune-kmeans")
+def tune_kmeans_endpoint():
+    """Dynamically retrains K-Means for user-selected K and initialization strategy."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+    try:
+        k = request.args.get("k", default=5, type=int)
+        init = request.args.get("init", default="k-means++", type=str)
+        n_init = request.args.get("n_init", default=10, type=int)
+        return jsonify(model_service.tune_kmeans(k=k, init_method=init, n_init=n_init)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.get("/api/decision-tree")
+def get_decision_tree_endpoint():
+    """Returns surrogate Decision Tree structure and IF-THEN rules for model explainability."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+    try:
+        return jsonify(model_service.get_decision_tree_rules()), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.post("/api/decision-tree/trace")
+def trace_decision_tree_endpoint():
+    """Traces an individual customer's decision path from root to leaf node."""
+    if model_service is None or not model_service.is_initialized:
+        return jsonify({"error": "ML Service unavailable"}), 503
+    payload = request.get_json(silent=True) or {}
+    try:
+        income = float(payload.get("income", 50.0))
+        spending = float(payload.get("spending", 50.0))
+        return jsonify(model_service.explain_customer_prediction(income=income, spending=spending)), 200
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     # Support port configuration via environment variable, defaulting to 5000
     port = int(os.environ.get("PORT", 5000))
