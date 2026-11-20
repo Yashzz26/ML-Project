@@ -136,6 +136,25 @@ export const apiService = {
     return handleResponse(res);
   },
 
+  async tuneKMeans(k = 5, init = 'k-means++', nInit = 10) {
+    const res = await fetch(`${BASE_URL}/tune-kmeans?k=${k}&init=${encodeURIComponent(init)}&n_init=${nInit}`);
+    return handleResponse(res);
+  },
+
+  async getDecisionTree() {
+    const res = await fetch(`${BASE_URL}/decision-tree`);
+    return handleResponse(res);
+  },
+
+  async traceDecisionTree(income, spending) {
+    const res = await fetch(`${BASE_URL}/decision-tree/trace`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ income, spending }),
+    });
+    return handleResponse(res);
+  },
+
   async getAnomalies(threshold = 2.0) {
     const res = await fetch(`${BASE_URL}/anomalies?threshold=${threshold}`);
     return handleResponse(res);
