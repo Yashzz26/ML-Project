@@ -68,13 +68,21 @@ REST API & Real-Time Inference (Using the exact fitted scaler & centroids)
 
 ## 🚀 Advanced Feature Expansions (Production Suite)
 
-1. **Multi-Metric Cluster Validation Lab**
-   - Validates cluster boundaries using 3 simultaneous academic criteria: **Elbow Inertia (WCSS)**, **Silhouette Coefficient**, **Davies-Bouldin Index**, and **Calinski-Harabasz Score**.
-2. **Customer Lifetime Value (CLV) & Revenue Projections**
+1. **Explainable AI (XAI): Surrogate Decision Tree & Rule Engine**
+   - Implements a surrogate **DecisionTreeClassifier (Entropy, Max Depth 3)** mapping K-Means clusters with **98.5% fidelity** into explicit, human-readable **IF-THEN production rules** and interactive customer path tracing.
+2. **Interactive 3D Demographic Spatial Visualizer**
+   - High-performance 3D canvas viewport plotting customers across `[Age, Annual Income, Spending Score]` with 360° mouse-drag orbit rotation, perspective scaling, centroid markers, auto-spin, and hover inspection HUD.
+3. **Live K-Tuning & Dynamic Re-Clustering Playground**
+   - Interactive slider allowing examiners to tune $K \in [2, 10]$ and seeding strategies (`k-means++` vs `random`) in real time, immediately recalculating Inertia, Silhouette, Davies-Bouldin, and Calinski-Harabasz scores.
+4. **AI-Powered Marketing Campaign Copywriter & Creative Studio**
+   - Dynamically crafts high-converting subject lines, A/B test variants, personalized promotional copy, CTAs, and offer incentives tailored to the active segment persona and marketing channel.
+5. **Multi-Metric Cluster Validation Lab**
+   - Validates cluster boundaries using 4 simultaneous academic criteria: **Elbow Inertia (WCSS)**, **Silhouette Coefficient**, **Davies-Bouldin Index**, and **Calinski-Harabasz Score**.
+6. **Customer Lifetime Value (CLV) & Revenue Projections**
    - Discounted cash flow (DCF) model forecasting 3-year projected customer value, churn risk, and retention budget allocation per cluster.
-3. **Batch Customer Scoring & CSV Pipeline**
+7. **Batch Customer Scoring & CSV Pipeline**
    - Drag-and-drop CSV processing pipeline enabling bulk scoring of prospective customer cohorts with instant CSV report download.
-4. **Marketing Campaign ROI Simulator**
+8. **Marketing Campaign ROI Simulator**
    - Decision-support simulator modeling audience reach, expected conversion rates, gross revenue, product COGS, and ROAS across 4 marketing channels (Email, SMS, Social Ads, VIP Concierge).
 
 ---
