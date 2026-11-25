@@ -609,8 +609,7 @@ export default function DashboardHome({ onNavigate }) {
           {/* Card 1: Moderate-Moderate (Cluster 0) - Soft Blue */}
           <div className="rounded-2xl p-4 bg-gradient-to-b from-[#f0f8ff] via-[#e8f3fc] to-[#e0effb] border border-sky-200/70 shadow-soft relative overflow-hidden flex flex-col justify-between hover:-translate-y-1 transition-transform duration-200">
             <div>
-              <div className="flex items-center space-x-2 mb-2 text-sky-600">
-                <Crown className="w-4 h-4" />
+              <div className="mb-2 text-sky-600">
                 <span className="text-xs font-bold tracking-tight">
                   Moderate-Moderate
                   <span className="block text-[10px] font-normal text-sky-700/80">
@@ -646,8 +645,7 @@ export default function DashboardHome({ onNavigate }) {
           {/* Card 2: High-High (Cluster 1) - Soft Amber/Orange */}
           <div className="rounded-2xl p-4 bg-gradient-to-b from-[#fefbf2] via-[#fef6e5] to-[#fdedcd] border border-amber-200/70 shadow-soft relative overflow-hidden flex flex-col justify-between hover:-translate-y-1 transition-transform duration-200">
             <div>
-              <div className="flex items-center space-x-2 mb-2 text-amber-600">
-                <Sparkles className="w-4 h-4" />
+              <div className="mb-2 text-amber-600">
                 <span className="text-xs font-bold tracking-tight">
                   High-High
                   <span className="block text-[10px] font-normal text-amber-700/80">
@@ -682,8 +680,7 @@ export default function DashboardHome({ onNavigate }) {
           {/* Card 3: Low-High (Cluster 2) - Soft Purple/Lavender */}
           <div className="rounded-2xl p-4 bg-gradient-to-b from-[#fbf8fe] via-[#f4edfd] to-[#ede3fb] border border-purple-200/70 shadow-soft relative overflow-hidden flex flex-col justify-between hover:-translate-y-1 transition-transform duration-200">
             <div>
-              <div className="flex items-center space-x-2 mb-2 text-purple-600">
-                <Zap className="w-4 h-4" />
+              <div className="mb-2 text-purple-600">
                 <span className="text-xs font-bold tracking-tight">
                   Low-High
                   <span className="block text-[10px] font-normal text-purple-700/80">
@@ -718,8 +715,7 @@ export default function DashboardHome({ onNavigate }) {
           {/* Card 4: High-Low (Cluster 3) - Soft Pink/Red */}
           <div className="rounded-2xl p-4 bg-gradient-to-b from-[#fef6f6] via-[#feeeee] to-[#fde2e2] border border-rose-200/70 shadow-soft relative overflow-hidden flex flex-col justify-between hover:-translate-y-1 transition-transform duration-200">
             <div>
-              <div className="flex items-center space-x-2 mb-2 text-rose-600">
-                <BarChart3 className="w-4 h-4" />
+              <div className="mb-2 text-rose-600">
                 <span className="text-xs font-bold tracking-tight">
                   High-Low
                   <span className="block text-[10px] font-normal text-rose-700/80">
@@ -754,8 +750,7 @@ export default function DashboardHome({ onNavigate }) {
           {/* Card 5: Low-Low (Cluster 4) - Soft Green */}
           <div className="rounded-2xl p-4 bg-gradient-to-b from-[#f2fbf5] via-[#e6f7ec] to-[#d8f2e1] border border-emerald-200/70 shadow-soft relative overflow-hidden flex flex-col justify-between hover:-translate-y-1 transition-transform duration-200">
             <div>
-              <div className="flex items-center space-x-2 mb-2 text-emerald-600">
-                <Leaf className="w-4 h-4" />
+              <div className="mb-2 text-emerald-600">
                 <span className="text-xs font-bold tracking-tight">
                   Low-Low
                   <span className="block text-[10px] font-normal text-emerald-700/80">
