@@ -326,6 +326,41 @@ export default function CustomerSegmentationPage() {
                 <span className="font-bold text-slate-800">Cluster Benchmark: </span>
                 This customer matches a cluster representing {result.cluster_statistics.customer_count} mall shoppers ({result.cluster_statistics.percentage_of_mall}%) with an average income of ₹{result.cluster_statistics.centroid_income}k and spending score of {result.cluster_statistics.centroid_spending}/100.
               </div>
+
+              {/* Surrogate Decision Tree Explanation */}
+              {result.surrogate_explanation && (
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Surrogate Decision Tree Explanation
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        result.surrogate_explanation.agrees_with_kmeans
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}
+                    >
+                      {result.surrogate_explanation.agrees_with_kmeans
+                        ? 'Agrees with K-Means++'
+                        : `Boundary Case (Tree: C${result.surrogate_explanation.surrogate_predicted_cluster})`}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {result.surrogate_explanation.path_steps?.map((step) => (
+                      <span
+                        key={step.step}
+                        className="text-[11px] font-mono bg-white border border-slate-200 text-slate-700 px-2 py-0.5 rounded"
+                      >
+                        {step.explanation}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    {result.surrogate_explanation.explanation_narrative}
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="analytics-card p-12 text-center flex flex-col items-center justify-center space-y-3 h-full">

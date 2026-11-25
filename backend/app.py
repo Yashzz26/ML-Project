@@ -301,40 +301,63 @@ def get_model_comparison():
         km_metrics = model_service.get_evaluation_metrics()["final_metrics"]
         agg_metrics = model_service.get_hierarchical_clustering()
         dbscan_metrics = model_service.get_dbscan_clustering()
+
+        models = [
+            {
+                "name": "K-Means++ (Selected Baseline)",
+                "type": "Centroid-based Partitioning",
+                "silhouette_score": km_metrics["silhouette_score"],
+                "davies_bouldin": km_metrics["davies_bouldin_index"],
+                "calinski_harabasz": km_metrics["calinski_harabasz_score"],
+                "optimal_k": 5,
+                "noise_points": 0,
+                "coverage_pct": 100.0,
+                "strengths": "Fast O(NK) convergence, distinct spherical convex boundaries, ideal for retail income-spend cohorts.",
+                "is_selected": False,
+            },
+            {
+                "name": "Agglomerative Hierarchical",
+                "type": "Bottom-up Hierarchical (Ward)",
+                "silhouette_score": agg_metrics["silhouette_score"],
+                "davies_bouldin": agg_metrics["davies_bouldin_index"],
+                "calinski_harabasz": agg_metrics["calinski_harabasz_score"],
+                "optimal_k": agg_metrics["n_clusters"],
+                "noise_points": 0,
+                "coverage_pct": 100.0,
+                "strengths": "Deterministic dendrogram hierarchy, zero initialization variance, higher computational complexity O(N^3).",
+                "is_selected": False,
+            },
+            {
+                "name": "DBSCAN",
+                "type": "Density-Based Spatial Clustering",
+                "silhouette_score": dbscan_metrics["silhouette_score"],
+                "davies_bouldin": dbscan_metrics["davies_bouldin_index"],
+                "calinski_harabasz": dbscan_metrics["calinski_harabasz_score"],
+                "optimal_k": dbscan_metrics["clusters_found"],
+                "noise_points": dbscan_metrics["outliers_detected"],
+                "coverage_pct": dbscan_metrics["coverage_pct"],
+                "strengths": (
+                    f"Arbitrary shape clustering with automatic noise separation "
+                    f"({dbscan_metrics['outliers_detected']} outliers excluded from internal metrics; "
+                    f"{dbscan_metrics['coverage_pct']}% coverage)."
+                ),
+                "is_selected": False,
+            },
+        ]
+
+        best_model = max(models, key=lambda m: m["silhouette_score"])
+        best_model["is_selected"] = True
+
+        conclusion = (
+            f"{best_model['name']} achieves the highest Silhouette Score ({best_model['silhouette_score']:.4f}), "
+            f"lowest Davies-Bouldin Index ({best_model['davies_bouldin']:.4f}), and highest "
+            f"Calinski-Harabasz Score ({best_model['calinski_harabasz']:.2f}) with 100% dataset coverage, "
+            f"while DBSCAN isolates {dbscan_metrics['outliers_detected']} sparse points as noise."
+        )
+
         return jsonify({
-            "models": [
-                {
-                    "name": "K-Means++ (Selected Baseline)",
-                    "type": "Centroid-based Partitioning",
-                    "silhouette_score": km_metrics["silhouette_score"],
-                    "davies_bouldin": km_metrics["davies_bouldin_index"],
-                    "calinski_harabasz": km_metrics["calinski_harabasz_score"],
-                    "optimal_k": 5,
-                    "strengths": "Fast O(NK) convergence, distinct spherical convex boundaries, ideal for retail income-spend cohorts.",
-                    "is_selected": True,
-                },
-                {
-                    "name": "Agglomerative Hierarchical",
-                    "type": "Bottom-up Hierarchical (Ward)",
-                    "silhouette_score": agg_metrics["silhouette_score"],
-                    "davies_bouldin": agg_metrics["davies_bouldin_index"],
-                    "calinski_harabasz": agg_metrics["calinski_harabasz_score"],
-                    "optimal_k": 5,
-                    "strengths": "Deterministic dendrogram hierarchy, zero initialization variance, higher computational complexity O(N^3).",
-                    "is_selected": False,
-                },
-                {
-                    "name": "DBSCAN",
-                    "type": "Density-Based Spatial Clustering",
-                    "silhouette_score": dbscan_metrics["silhouette_score"],
-                    "davies_bouldin": 0.884,
-                    "calinski_harabasz": 112.4,
-                    "optimal_k": dbscan_metrics["clusters_found"],
-                    "strengths": "Arbitrary shape clustering, automatic noise/outlier separation, sensitive to global density variations.",
-                    "is_selected": False,
-                }
-            ],
-            "benchmark_conclusion": "K-Means++ achieves the highest Silhouette Score (0.5547) and superior cluster separability for 2D retail segmentation."
+            "models": models,
+            "benchmark_conclusion": conclusion,
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

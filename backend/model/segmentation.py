@@ -3,11 +3,20 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import io
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN
 from sklearn.decomposition import PCA
-from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+from sklearn.metrics import (
+    accuracy_score,
+    calinski_harabasz_score,
+    confusion_matrix,
+    davies_bouldin_score,
+    f1_score,
+    silhouette_score,
+)
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
@@ -49,6 +58,9 @@ class CustomerSegmentationModel:
         self.evaluations_multimetric: List[Dict[str, Any]] = []
         self.cluster_profiles: List[Dict[str, Any]] = []
         self.cluster_labels_map: Dict[int, Dict[str, str]] = {}
+        self.surrogate_tree: Optional[DecisionTreeClassifier] = None
+        self.holdout_evaluation: Optional[Dict[str, Any]] = None
+        self.model_dir: Path = self.data_path.resolve().parent.parent / "models"
         self.is_initialized: bool = False
         self.init_error: Optional[str] = None
 
@@ -257,6 +269,16 @@ class CustomerSegmentationModel:
             self.processed_df["Segment"] = self.processed_df["Cluster"].map(
                 lambda c: self.cluster_labels_map[c]["name"]
             )
+
+            # 10. Train & persist surrogate Decision Tree + run 150/50 holdout validation
+            self.surrogate_tree = DecisionTreeClassifier(
+                max_depth=4,
+                criterion="gini",
+                random_state=42,
+            )
+            self.surrogate_tree.fit(X, cluster_assignments)
+            self.holdout_evaluation = self._evaluate_decision_tree_holdout(X)
+            self._persist_artifacts()
 
             self.is_initialized = True
             self.init_error = None
@@ -603,6 +625,9 @@ class CustomerSegmentationModel:
         profile = next((p for p in self.cluster_profiles if p["cluster"] == cluster), {})
         label_info = self.cluster_labels_map.get(cluster, {})
 
+        # Surrogate Decision Tree explanation beside authoritative K-Means prediction
+        explanation = self.explain_customer_prediction(income=income, spending=spending)
+
         return {
             "assigned_cluster": cluster,
             "segment_name": label_info.get("name", f"Cluster {cluster}"),
@@ -625,6 +650,12 @@ class CustomerSegmentationModel:
                 "centroid_spending": profile.get("centroid_spending", spending),
                 "average_age": profile.get("average_age", age),
                 "dominant_gender": profile.get("dominant_gender", gender),
+            },
+            "surrogate_explanation": {
+                "surrogate_predicted_cluster": explanation["predicted_cluster"],
+                "agrees_with_kmeans": explanation["predicted_cluster"] == cluster,
+                "path_steps": explanation["path_steps"],
+                "explanation_narrative": explanation["explanation_narrative"],
             },
             "methodology_note": "Annual Income and Spending Score were standardized via StandardScaler and clustered with K-Means++ (K=5). Age and Gender are contextual profile attributes.",
         }
@@ -983,16 +1014,32 @@ class CustomerSegmentationModel:
         labels = db.fit_predict(self.X_scaled)
         n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
         n_noise = int((labels == -1).sum())
-        sil = float(silhouette_score(self.X_scaled, labels)) if n_clusters > 1 else 0.0
+        total_points = len(self.raw_df)
+        non_noise_mask = labels != -1
+        covered_points = int(non_noise_mask.sum())
+
+        if n_clusters > 1 and covered_points > n_clusters:
+            sil = float(silhouette_score(self.X_scaled[non_noise_mask], labels[non_noise_mask]))
+            db_idx = float(davies_bouldin_score(self.X_scaled[non_noise_mask], labels[non_noise_mask]))
+            ch_score = float(calinski_harabasz_score(self.X_scaled[non_noise_mask], labels[non_noise_mask]))
+        else:
+            sil = 0.0
+            db_idx = 0.0
+            ch_score = 0.0
+
         return {
             "algorithm": "DBSCAN (Density-Based)",
             "eps": eps,
             "min_samples": min_samples,
             "clusters_found": n_clusters,
             "outliers_detected": n_noise,
-            "outlier_percentage": round((n_noise / len(self.raw_df)) * 100, 1),
+            "outlier_percentage": round((n_noise / total_points) * 100, 1),
+            "coverage_pct": round((covered_points / total_points) * 100, 1),
+            "noise_excluded_from_metrics": True,
             "silhouette_score": round(sil, 4),
-            "description": "Density-based clustering grouping closely packed points and isolating sparse boundary anomalies as noise.",
+            "davies_bouldin_index": round(db_idx, 4),
+            "calinski_harabasz_score": round(ch_score, 2),
+            "description": "Density-based clustering grouping closely packed points and isolating sparse boundary anomalies as noise (internal metrics computed on non-noise points).",
         }
 
     def get_3d_clustering(self) -> Dict[str, Any]:
@@ -1033,13 +1080,16 @@ class CustomerSegmentationModel:
         }
 
     def get_pca_projections(self) -> Dict[str, Any]:
-        """Principal Component Analysis (PCA) 2D projection of customer attributes."""
-        if not self.is_initialized:
+        """Principal Component Analysis (PCA) 2D projection of standardized [Age, Annual Income, Spending Score]."""
+        if not self.is_initialized or self.raw_df is None or self.processed_df is None:
             raise RuntimeError(self.init_error or "Model pipeline not initialized.")
+        pca_features = ["Age", "Annual Income (k$)", "Spending Score (1-100)"]
+        X_3d = self.raw_df[pca_features].astype(float)
+        scaled_3d = StandardScaler().fit_transform(X_3d)
         pca = PCA(n_components=2)
-        X_pca = pca.fit_transform(self.X_scaled)
+        X_pca = pca.fit_transform(scaled_3d)
         var_ratios = [round(float(v) * 100, 2) for v in pca.explained_variance_ratio_]
-        
+
         pca_points = []
         for idx, row in self.processed_df.iterrows():
             pca_points.append({
@@ -1050,6 +1100,7 @@ class CustomerSegmentationModel:
                 "segmentName": str(row["Segment"]),
             })
         return {
+            "features_used": pca_features,
             "explained_variance_ratio": var_ratios,
             "total_variance_explained": round(sum(var_ratios), 2),
             "points": pca_points,
@@ -1181,19 +1232,81 @@ class CustomerSegmentationModel:
             "points": points,
         }
 
+    def _evaluate_decision_tree_holdout(self, X: pd.DataFrame) -> Dict[str, Any]:
+        """
+        Evaluates surrogate Decision Tree generalization using a strict 150/50 split:
+        scaler and K-Means++ teacher are fit on the 150 training rows only,
+        and a depth-4 Gini Decision Tree is evaluated on the 50 held-out rows.
+        """
+        X_train, X_test = train_test_split(X, test_size=50, random_state=42)
+        holdout_scaler = StandardScaler()
+        X_train_scaled = holdout_scaler.fit_transform(X_train)
+        X_test_scaled = holdout_scaler.transform(X_test)
+
+        teacher = KMeans(
+            n_clusters=5,
+            init="k-means++",
+            n_init=10,
+            random_state=42,
+        )
+        y_train_teacher = teacher.fit_predict(X_train_scaled)
+        y_test_teacher = teacher.predict(X_test_scaled)
+
+        holdout_tree = DecisionTreeClassifier(max_depth=4, random_state=42)
+        holdout_tree.fit(X_train, y_train_teacher)
+        y_pred = holdout_tree.predict(X_test)
+
+        acc = round(float(accuracy_score(y_test_teacher, y_pred)) * 100, 2)
+        macro_f1 = round(float(f1_score(y_test_teacher, y_pred, average="macro")), 4)
+        cm = confusion_matrix(y_test_teacher, y_pred, labels=[0, 1, 2, 3, 4]).tolist()
+
+        return {
+            "train_records": int(len(X_train)),
+            "test_records": int(len(X_test)),
+            "accuracy_vs_teacher_pct": acc,
+            "macro_f1_vs_teacher": macro_f1,
+            "confusion_matrix": cm,
+            "feature_importances": {
+                self.FEATURES[i]: round(float(holdout_tree.feature_importances_[i]) * 100, 2)
+                for i in range(len(self.FEATURES))
+            },
+            "note": "Teacher and StandardScaler fit on 150 training rows only; Decision Tree (max_depth=4, Gini) evaluated on 50 held-out rows.",
+        }
+
+    def _persist_artifacts(self) -> None:
+        """Persists fitted K-Means++ teacher, StandardScaler, and surrogate Decision Tree together."""
+        try:
+            self.model_dir.mkdir(parents=True, exist_ok=True)
+            if self.model is not None:
+                joblib.dump(self.model, self.model_dir / "kmeans.joblib")
+            if self.scaler is not None:
+                joblib.dump(self.scaler, self.model_dir / "scaler.joblib")
+            if self.surrogate_tree is not None:
+                joblib.dump(self.surrogate_tree, self.model_dir / "decision_tree_surrogate.joblib")
+        except OSError:
+            # Read-only environment fallback: keep in-memory artifacts
+            pass
+
     def get_decision_tree_rules(self) -> Dict[str, Any]:
         """
-        Trains a surrogate Decision Tree on K-Means outputs to provide transparent,
-        rule-based explainability (XAI) for how each customer segment is classified.
+        Extracts transparent IF-THEN rules from the persisted surrogate Decision Tree
+        trained on K-Means++ cluster assignments.
         """
         if not self.is_initialized or self.processed_df is None:
             raise RuntimeError(self.init_error or "Model pipeline not initialized.")
-            
-        X = self.raw_df[self.FEATURES]
+
+        X = self.raw_df[self.FEATURES].astype(float)
         y = self.processed_df["Cluster"].values
-        
-        dt = DecisionTreeClassifier(max_depth=3, criterion="entropy", random_state=42)
-        dt.fit(X, y)
+
+        if self.surrogate_tree is None:
+            self.surrogate_tree = DecisionTreeClassifier(
+                max_depth=4,
+                criterion="gini",
+                random_state=42,
+            )
+            self.surrogate_tree.fit(X, y)
+
+        dt = self.surrogate_tree
         fidelity = round(float(dt.score(X, y)) * 100, 1)
         
         feature_names = self.FEATURES
@@ -1270,12 +1383,13 @@ class CustomerSegmentationModel:
         }
         
         return {
-            "surrogate_model": "DecisionTreeClassifier (Entropy, Max Depth 3)",
+            "surrogate_model": "DecisionTreeClassifier (Gini, Max Depth 4)",
             "fidelity_accuracy_pct": fidelity,
-            "max_depth": 3,
+            "max_depth": 4,
             "total_nodes": tree.node_count,
             "total_leaves": len(rules),
             "feature_importances": importances,
+            "holdout_evaluation": self.holdout_evaluation,
             "nodes": nodes,
             "rules": rules,
             "summary": f"Surrogate Decision Tree captures {fidelity}% of K-Means clustering boundaries into transparent IF-THEN production rules.",

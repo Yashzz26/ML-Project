@@ -69,3 +69,34 @@ def test_explain_customer_prediction(model_service):
     assert explanation["predicted_cluster"] in [0, 1, 2, 3, 4]
     assert len(explanation["explanation_narrative"]) > 0
 
+def test_dbscan_calculated_metrics(model_service):
+    db = model_service.get_dbscan_clustering()
+    assert db["noise_excluded_from_metrics"] is True
+    assert db["outliers_detected"] == 9
+    assert db["davies_bouldin_index"] > 0
+    assert db["calinski_harabasz_score"] > 0
+    assert db["coverage_pct"] == 95.5
+
+def test_pca_age_aware_projection(model_service):
+    pca = model_service.get_pca_projections()
+    assert pca["features_used"] == ["Age", "Annual Income (k$)", "Spending Score (1-100)"]
+    assert 75.0 <= pca["total_variance_explained"] <= 80.0
+    assert len(pca["points"]) == 200
+
+def test_decision_tree_holdout_and_persistence(model_service):
+    tree_data = model_service.get_decision_tree_rules()
+    holdout = tree_data["holdout_evaluation"]
+    assert holdout["train_records"] == 150
+    assert holdout["test_records"] == 50
+    assert holdout["accuracy_vs_teacher_pct"] >= 90.0
+    assert holdout["macro_f1_vs_teacher"] >= 0.90
+    assert (model_service.model_dir / "kmeans.joblib").exists()
+    assert (model_service.model_dir / "scaler.joblib").exists()
+    assert (model_service.model_dir / "decision_tree_surrogate.joblib").exists()
+
+def test_predict_includes_surrogate_explanation(model_service):
+    pred = model_service.predict_segment({"income": 85, "spending_score": 82, "age": 30, "gender": "Female"})
+    assert "surrogate_explanation" in pred
+    assert pred["surrogate_explanation"]["agrees_with_kmeans"] is True
+    assert len(pred["surrogate_explanation"]["path_steps"]) > 0
+

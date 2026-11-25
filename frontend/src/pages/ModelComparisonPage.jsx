@@ -73,6 +73,20 @@ export default function ModelComparisonPage() {
                 <span className="text-slate-400 block text-[10px] uppercase">Optimal K</span>
                 <span className="font-extrabold text-[#7c3aed] text-sm font-mono">{m.optimal_k}</span>
               </div>
+              <div>
+                <span className="text-slate-400 block text-[10px] uppercase">Davies-Bouldin</span>
+                <span className="font-extrabold text-slate-800 text-sm font-mono">{m.davies_bouldin}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px] uppercase">Calinski-Harabasz</span>
+                <span className="font-extrabold text-slate-800 text-sm font-mono">{m.calinski_harabasz}</span>
+              </div>
+              {m.noise_points > 0 && (
+                <div className="col-span-2 pt-1 border-t border-slate-100 flex justify-between text-[11px] text-amber-700 font-semibold">
+                  <span>Noise Points: {m.noise_points}</span>
+                  <span>Coverage: {m.coverage_pct}%</span>
+                </div>
+              )}
             </div>
           </div>
         ))}

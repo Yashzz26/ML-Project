@@ -19,7 +19,24 @@ def test_dashboard_endpoint(client):
 def test_model_comparison_endpoint(client):
     res = client.get("/api/model-comparison")
     assert res.status_code == 200
-    assert len(res.get_json()["models"]) == 3
+    data = res.get_json()
+    assert len(data["models"]) == 3
+    dbscan_entry = next(m for m in data["models"] if m["name"] == "DBSCAN")
+    assert dbscan_entry["noise_points"] == 9
+    assert dbscan_entry["davies_bouldin"] != 0.884
+    assert dbscan_entry["calinski_harabasz"] != 112.4
+
+def test_predict_endpoint_with_explanation(client):
+    res = client.post("/api/predict", json={
+        "income": 85,
+        "spending_score": 82,
+        "age": 32,
+        "gender": "Female"
+    })
+    assert res.status_code == 200
+    data = res.get_json()
+    assert "surrogate_explanation" in data
+    assert data["surrogate_explanation"]["agrees_with_kmeans"] is True
 
 def test_clv_analysis_endpoint(client):
     res = client.get("/api/clv-analysis")

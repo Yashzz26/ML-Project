@@ -141,7 +141,7 @@ export default function DecisionTreePage() {
               TREE ARCHITECTURE
             </span>
             <span className="text-xs font-bold text-slate-800 block mt-0.5">
-              Entropy · Max Depth {treeData?.max_depth}
+              Gini · Max Depth {treeData?.max_depth}
             </span>
           </div>
 
@@ -205,6 +205,28 @@ export default function DecisionTreePage() {
           <div className="mt-5 p-3 rounded-xl bg-purple-50/50 border border-purple-100 text-[11px] text-slate-600 leading-relaxed">
             <strong>Viva Presentation Tip:</strong> While Annual Income provides macro-economic separation, customer Spending Score provides sharper discriminatory power at the cluster boundary level.
           </div>
+
+          {treeData?.holdout_evaluation && (
+            <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                Holdout Validation ({treeData.holdout_evaluation.train_records} Train / {treeData.holdout_evaluation.test_records} Test)
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-white p-2 rounded-lg border border-slate-100">
+                  <span className="text-[10px] text-slate-400 block">Accuracy vs Teacher</span>
+                  <span className="font-extrabold text-[#7c3aed] font-mono">
+                    {treeData.holdout_evaluation.accuracy_vs_teacher_pct}%
+                  </span>
+                </div>
+                <div className="bg-white p-2 rounded-lg border border-slate-100">
+                  <span className="text-[10px] text-slate-400 block">Macro F1</span>
+                  <span className="font-extrabold text-slate-800 font-mono">
+                    {treeData.holdout_evaluation.macro_f1_vs_teacher}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Interactive Customer Rule Tracer ("Explain Any Customer") */}
